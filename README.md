@@ -1,7 +1,7 @@
 # Clustering in R
 
 
-My second project prepared as part of the subject Unsupervised Learning on my Master Studies.
+My second project prepared as part of the subject [Unsupervised Learning](https://usosweb.wne.uw.edu.pl/kontroler.php?_action=katalog2/przedmioty/pokazPrzedmiot&kod=2400-DS1UL) on my Master Studies.
 
 The goals of assessment:
 
