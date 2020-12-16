@@ -1,0 +1,176 @@
+knitr::opts_chunk$set(fig.align = 'center', out.width = '80%', echo = TRUE)
+
+library(foreign)
+library(dplyr)
+library(GGally)
+library(factoextra)
+library(ggbiplot)
+library(corrplot)
+library(outliers)
+library(knitr)
+
+
+# Data
+##  1. Selection of objects and variables.
+# In the data set, each observation is characterized by 4 quantitative variables describing the features of the apartments sold. We have no predefined classes and clustering is a sort of unsupervised classification, but we know the characteristics of each observation. Based on them, we will make a division.
+
+
+setwd("/Users/alubis/Desktop/OneDrive/DS")
+dane=read.csv("flats.csv", sep=",")
+dane$age= 2020-dane$construction_date
+dane = dane %>% filter(flat_type== c("1 ROOM", "2 ROOM","3 ROOM", "4 ROOM", "5 ROOM"))
+dane$room_numb = as.integer(substring(dane$flat_type, 1, 1))
+
+
+# The analysis uses a stochastic approach - a set of observations is a randomly selected sample coming from the population. Random selection and size of the sample will allow to obtain a division into classes that best fit the structure of population classes. Our goal is to group 1000 objects into k clusters of similar objects. The first ten rows of the dataset we can see in the Table 1.1.
+
+
+set.seed(123456)
+sample = dane[sample(nrow(dane), size= 1000),]
+dane_c = sample %>% select(floor_area_sqm, resale_price, age, room_numb)
+dane_2=dane_c
+
+kable(dane_c[1:10,], align = "cc", caption = "Table 1.1 The first 10 rows of data.")
+
+
+# There is no unified and widely accepted clustering theory. One of them states that the selection of uncorrelated and correlated variables with eliminated variables is recommended. For this purpose the correlation of variables was checked:
+  
+dane_c <- scale(dane_c)
+matrix <- data.matrix(dane_c, rownames.force = NA)
+matrix_2 <- cor(matrix)
+corrplot(matrix_2, method = "number", number.cex = 0.75, order="hclust")
+
+
+# The variable 'room_numb' is strongly correlated with the variable 'floor_area_sqm'.
+# This method of selecting variables for cluster analysis is often criticized. For most clustering methods, no assumption is made about normal distribution or lack of correlation, so I will leave all variables in the analysis, but I will check if there are outlying observations.
+
+library(cluster)
+library(gridExtra)
+par(mfrow=c(2,2))
+colnames <- colnames(dane_c)
+for (i in colnames) {
+  plot(dane_c[,i], main = paste("Plot of ", i), ylab = i)
+}
+
+boxplot(dane_c) #$out
+
+
+# As we can see there are outlying observations.
+# The next step is to remove outliers.
+
+dane_c=as.data.frame(dane_c)
+dane = rm.outlier(dane_c, fill = TRUE, median = FALSE, opposite = FALSE)
+dane = as.data.frame(dane)
+
+
+# # Clustering
+# 
+# The first problem concerns the number of classified objects.
+# As the number of classified objects grows, the number of possible divisions of the set grows.
+# The second problem, which requires the use of appropriate algorithms, is the number of variables describing objects and the distribution of objects in space.
+# In order to choose the best number of clusters, we need the methods and algorithms presented below.
+# 
+# ## 2. Choice of distance measure.
+# First, we have to assign a proper distance measure between data. Then, we look for a partition, where the distance between objects within parition is minimized and distance between objects from different clusters is maximised. [1]
+# I will choose the Manhattan distance which is a suitable measure for the metric scales. It produces similar results to the Euclidean measure, but is more robust to outliers. 
+
+
+distance <- dist(dane, method = "manhattan")
+grupy <- agnes(distance, method = "ward")
+
+
+# ## 3. Determining the number of classes
+# 
+# The number of classes depends on the selected model.
+
+p1 <- fviz_nbclust(dane, FUNcluster = kmeans, method = "silhouette") + theme_classic() 
+p2 <- fviz_nbclust(dane, FUNcluster = cluster::pam, method = "silhouette") + theme_classic() 
+p3 <- fviz_nbclust(dane, FUNcluster = cluster::clara, method = "silhouette") + theme_classic() 
+p4 <- fviz_nbclust(dane, FUNcluster = hcut, method = "silhouette") + theme_classic() 
+grid.arrange(p1, p2, p3, p4, ncol=2)
+
+
+# Based on the charts and silhouette statistic, we choose the number of classes equal to 2. This number of classes is indicated by two models and for the other two the 'Average width' for the value of 2 is very similar to the one indicated by the given model.
+# 
+# I will evaluate the results of the clustering into two classes.
+
+library(clusterSim)
+wyn= replication.Mod(dane, v='m', u=2, centrotypes= "medoids", distance='d1', method='pam')
+
+# The result is **`r wyn$cRand`** and it proves the high stability of the division into two classes.
+
+wyn2= replication.Mod(dane, v='m', u=7, centrotypes= "medoids", distance='d1', method='kmeans')
+
+# In comparison, the stability of the k-means model for the seven classes is **`r wyn2$cRand`** and it is much lower.
+
+## 4.Choice of classification method.
+
+### K-means - flat clustering
+
+# In K-Means method, each class is represented by centroids. We are looking for a division of the set for which the covariance matrix for the classes reaches the minimum.
+# This approach employs cluster center (means) to represent cluster. We assign data elements to the closest cluster (center). The centroid's position is recalculated everytime a component is added to the cluster and this continues until all the components are grouped into the final required number of clusters. The purpose is to minimize the square error of the intra-class dissimilarity. After we assign each object to the cluster with the closest center, we compute the new centers of the clusters. [1]
+# 
+# eclust <- eclust(dane, "kmeans", k.max = 2,  graph = TRUE)
+
+
+### PAM
+
+# The algorithm searches for k representative objects in a data set (k medoids) and then assigns
+# each object to the closest medoid in order to create clusters. The goal is to minimize the sum of dissimilarities between the objects in a cluster and the center of the same cluster (medoid). [1]
+# 
+# This method is more robust than k-means in the presence of noise and outliers because a medoids less
+# influenced by outliers or other extreme values than a mean.
+
+eclust_2 <- eclust(dane, "pam", k.max = 2, graph = TRUE)
+
+
+### Hierarchical Clustering
+
+# The other clustering method method is hierarchical clustering.
+# These methods work with a single procedure and the results can be presented as a dendogram.
+# The classes that are connected to each other are the closest. In this method, each object is assigned to its own cluster; then the algorithm proceeds iteratively, at each stage joining the two most similar clusters, continuing until there is just a single cluster. [1]
+
+### Ward’s dendrogram
+fviz_dend(grupy, k = 2, rect = TRUE)
+
+hclust <- eclust(dane, k=2, FUNcluster="hclust", hc_metric="manhattan", hc_method = "complete")
+plot(hclust, main = "Dendrogram")
+rect.hclust(hclust, k=2, border='red')
+
+
+# ## 5. Evaluation of the classification results.
+# 
+# The next step will be replication analysis - repetition of classification for another random sample.
+# 
+# We can check it by using 'replication.Mod' function, because we can see the parameter S which suggest the 
+# the number of simulations.
+
+
+ocena= replication.Mod(dane, v='m', u=2, centrotypes= "medoids", S=20, distance='d1', method='pam')
+
+# # Conclusions
+# 
+# As a result of the classification we received two classes of apartments. The next step is the interpretation of the obtained results and profiling, which indicates the characteristics of individual classes and allows to determine the differences between them.
+# 
+# ## 6. Description and profiling of classes.
+# 
+# As a result we will see three-dimensional array. 
+# First dimension contains cluster number. Second dimension contains original coordinate (variable) number from matrix or data set.
+# 
+# Third dimension contains number from 1 to 5:
+# 
+# 1.arithmetic mean
+# 
+# 2.standard deviation
+# 
+# 3.median
+# 
+# 4.median absolute deviation (mad)
+# 
+# 5.mode - value of the variable which has the largest observed frequency.
+
+
+
+cl=pam(dane_2,2)
+desc=cluster.Description(dane_2, cl$cluster)
+print(desc)
