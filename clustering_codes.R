@@ -174,3 +174,36 @@ ocena= replication.Mod(dane, v='m', u=2, centrotypes= "medoids", S=20, distance=
 cl=pam(dane_2,2)
 desc=cluster.Description(dane_2, cl$cluster)
 print(desc)
+
+
+# * floor_area_sqm - first cluster contains of smallest flats - 
+#   
+#   the average area is 83 square meters. The second group is large apartments.
+# 
+# 
+# * resale_price - The average price of flats in the first cluster is much lower than in the second cluster.
+# 
+# 
+# * age - Mean age also differs from group to group. The first group includes apartments that are on average older than the second group.
+# 
+# 
+# * room_numb - The first group of apartments is characterized by a smaller number of rooms.
+# 
+# 
+# Looking at the standard deviation, we can conclude that both groups are similarly different. It also proves a good division of flats into clusters.
+# 
+# # Summary
+# 
+# The clustering analysis was started with the selection of variables (**floor_area_sqm, resale_price, age, room_numb**) and distance measures (**manhattan distance**). Then the number of clusters was determined on model estimates and a measure of model stability. The next step was model selection. Finally, the **PAM model was chosen for analysis**, which gave the most stable results. The last step was to present and describe the characteristics of the specified classes. **Using clustering methods we received two types of apartments**. Classes consist of such elements, which are closest to each other inside the class and different from apartments in the second class. First class apartments are smaller and cheaper, as opposed to second class apartments.
+# 
+# 
+# ------------------------------------------------------------------------------------
+#   Sources:
+#   
+#   1.*Katarzyna Kopczewska, Jacek Lewkowicz. Unsupervised Learning. Presentation from the classes.*
+#   
+#   2.*Statystyczna Analiza Danych z wykorzystaniem programu R. Marek Walesiak. 2012. PWN.*
+#   
+#   3.*https://www.atsjournals.org/doi/full/10.1164/rccm.200711-1754OC - Cluster Analysis and Clinical Asthma Phenotypes. Pranab Haldar.*
+#   
+#   4.*https://cran.r-project.org/web/packages/clusterSim/clusterSim.pdf*
